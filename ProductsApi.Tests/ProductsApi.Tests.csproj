@@ -30,6 +30,7 @@
     <ProjectReference Include="..\ProductsApi.Application\ProductsApi.Application.csproj" />
     <ProjectReference Include="..\ProductsApi.Domain\ProductsApi.Domain.csproj" />
     <ProjectReference Include="..\ProductsApi.Infrastructure\ProductsApi.Infrastructure.csproj" />
+    <ProjectReference Include="..\ProductsApi.API\ProductsApi.API.csproj" />
   </ItemGroup>
 
 </Project>
