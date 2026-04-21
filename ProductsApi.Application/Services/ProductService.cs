@@ -1,9 +1,10 @@
 using AutoMapper;
 using FluentValidation;
-using ProductsApi.Application.DTOs;
+using ProductsApi.Application.DTOs.Products;
 using ProductsApi.Application.Interfaces;
 using ProductsApi.Domain.Entities;
 using ProductsApi.Domain.Exceptions;
+using DomainValidationException = ProductsApi.Domain.Exceptions.ValidationException;
 
 namespace ProductsApi.Application.Services;
 
@@ -26,10 +27,13 @@ public class ProductService : IProductService
         _updateValidator = updateValidator;
     }
 
-    public async Task<IEnumerable<ProductResponse>> GetAllAsync()
+    public async Task<PagedProductResponse> GetPagedAsync(int page, int pageSize, string? search, int? categoryId)
     {
-        var products = await _uow.Products.GetAllAsync();
-        return _mapper.Map<IEnumerable<ProductResponse>>(products);
+        pageSize = Math.Min(pageSize, 50);
+        var (items, totalCount) = await _uow.Products.GetPagedAsync(page, pageSize, search, categoryId);
+        var mapped = _mapper.Map<IEnumerable<ProductResponse>>(items);
+        var totalPages = (int)Math.Ceiling(totalCount / (double)pageSize);
+        return new PagedProductResponse(mapped, totalCount, page, pageSize, totalPages);
     }
 
     public async Task<ProductResponse> GetByIdAsync(int id)
@@ -43,20 +47,23 @@ public class ProductService : IProductService
     {
         var validation = await _createValidator.ValidateAsync(request);
         if (!validation.IsValid)
-            throw new ValidationException(validation.Errors);
+            throw new DomainValidationException(validation.Errors.Select(e => e.ErrorMessage));
 
         var product = _mapper.Map<Product>(request);
         product.CreatedAt = DateTime.UtcNow;
         await _uow.Products.AddAsync(product);
         await _uow.SaveChangesAsync();
-        return _mapper.Map<ProductResponse>(product);
+
+        var created = await _uow.Products.GetByIdAsync(product.Id)
+            ?? throw new NotFoundException(nameof(Product), product.Id);
+        return _mapper.Map<ProductResponse>(created);
     }
 
     public async Task<ProductResponse> UpdateAsync(int id, UpdateProductRequest request)
     {
         var validation = await _updateValidator.ValidateAsync(request);
         if (!validation.IsValid)
-            throw new ValidationException(validation.Errors);
+            throw new DomainValidationException(validation.Errors.Select(e => e.ErrorMessage));
 
         var product = await _uow.Products.GetByIdAsync(id)
             ?? throw new NotFoundException(nameof(Product), id);
@@ -65,7 +72,10 @@ public class ProductService : IProductService
         product.UpdatedAt = DateTime.UtcNow;
         await _uow.Products.UpdateAsync(product);
         await _uow.SaveChangesAsync();
-        return _mapper.Map<ProductResponse>(product);
+
+        var updated = await _uow.Products.GetByIdAsync(id)
+            ?? throw new NotFoundException(nameof(Product), id);
+        return _mapper.Map<ProductResponse>(updated);
     }
 
     public async Task DeleteAsync(int id)

@@ -1,5 +1,5 @@
 using FluentValidation;
-using ProductsApi.Application.DTOs;
+using ProductsApi.Application.DTOs.Products;
 
 namespace ProductsApi.Application.Validators;
 
@@ -7,17 +7,17 @@ public class UpdateProductRequestValidator : AbstractValidator<UpdateProductRequ
 {
     public UpdateProductRequestValidator()
     {
-        RuleFor(x => x.Nom)
-            .NotEmpty().WithMessage("Le nom est obligatoire.")
-            .MaximumLength(200).WithMessage("Le nom ne peut pas dépasser 200 caractères.");
+        RuleFor(x => x.Name)
+            .NotEmpty().WithMessage("Name is required.")
+            .MaximumLength(200).WithMessage("Name must not exceed 200 characters.");
 
-        RuleFor(x => x.Prix)
-            .GreaterThan(0).WithMessage("Le prix doit être supérieur à 0.");
+        RuleFor(x => x.Price)
+            .GreaterThan(0).WithMessage("Price must be greater than 0.");
 
         RuleFor(x => x.Stock)
-            .GreaterThanOrEqualTo(0).WithMessage("Le stock ne peut pas être négatif.");
+            .GreaterThanOrEqualTo(0).WithMessage("Stock must be greater than or equal to 0.");
 
-        RuleFor(x => x.Categorie)
-            .NotEmpty().WithMessage("La catégorie est obligatoire.");
+        RuleFor(x => x.CategoryId)
+            .GreaterThan(0).WithMessage("CategoryId must be a valid category.");
     }
 }

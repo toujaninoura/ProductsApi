@@ -10,5 +10,5 @@ public record ApiResponse<T>(
     public static ApiResponse<T> Ok(T data) => new(true, data, null, null);
     public static ApiResponse<T> Fail(string message) => new(false, default, message, null);
     public static ApiResponse<T> ValidationFail(IEnumerable<string> errors)
-        => new(false, default, "Validation échouée", errors);
+        => new(false, default, "Validation failed", errors);
 }
