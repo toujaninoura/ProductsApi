@@ -1,5 +1,5 @@
 using NUnit.Framework;
-using ProductsApi.Application.DTOs;
+using ProductsApi.Application.DTOs.Products;
 using ProductsApi.Application.Validators;
 
 namespace ProductsApi.Tests.Unit.Validators;
@@ -15,42 +15,42 @@ public class CreateProductRequestValidatorTests
     [Test]
     public async Task Validate_WhenAllFieldsValid_ShouldBeValid()
     {
-        var request = new CreateProductRequest("Produit Test", 19.99m, 50, "Electronique");
+        var request = new CreateProductRequest("Laptop Pro", "High-end laptop", 999m, 50, 1);
         var result = await _sut.ValidateAsync(request);
         Assert.That(result.IsValid, Is.True);
     }
 
     [Test]
-    public async Task Validate_WhenNomEmpty_ShouldHaveError()
+    public async Task Validate_WhenNameEmpty_ShouldHaveError()
     {
-        var request = new CreateProductRequest("", 19.99m, 50, "Electronique");
+        var request = new CreateProductRequest("", null, 19.99m, 50, 1);
         var result = await _sut.ValidateAsync(request);
         Assert.That(result.IsValid, Is.False);
-        Assert.That(result.Errors.Any(e => e.PropertyName == "Nom"), Is.True);
+        Assert.That(result.Errors.Any(e => e.PropertyName == "Name"), Is.True);
     }
 
     [Test]
-    public async Task Validate_WhenPrixZero_ShouldHaveError()
+    public async Task Validate_WhenPriceZero_ShouldHaveError()
     {
-        var request = new CreateProductRequest("Produit", 0m, 50, "Cat");
+        var request = new CreateProductRequest("Produit", null, 0m, 50, 1);
         var result = await _sut.ValidateAsync(request);
         Assert.That(result.IsValid, Is.False);
-        Assert.That(result.Errors.Any(e => e.PropertyName == "Prix"), Is.True);
+        Assert.That(result.Errors.Any(e => e.PropertyName == "Price"), Is.True);
     }
 
     [Test]
-    public async Task Validate_WhenPrixNegative_ShouldHaveError()
+    public async Task Validate_WhenPriceNegative_ShouldHaveError()
     {
-        var request = new CreateProductRequest("Produit", -1m, 50, "Cat");
+        var request = new CreateProductRequest("Produit", null, -1m, 50, 1);
         var result = await _sut.ValidateAsync(request);
         Assert.That(result.IsValid, Is.False);
-        Assert.That(result.Errors.Any(e => e.PropertyName == "Prix"), Is.True);
+        Assert.That(result.Errors.Any(e => e.PropertyName == "Price"), Is.True);
     }
 
     [Test]
     public async Task Validate_WhenStockNegative_ShouldHaveError()
     {
-        var request = new CreateProductRequest("Produit", 10m, -1, "Cat");
+        var request = new CreateProductRequest("Produit", null, 10m, -1, 1);
         var result = await _sut.ValidateAsync(request);
         Assert.That(result.IsValid, Is.False);
         Assert.That(result.Errors.Any(e => e.PropertyName == "Stock"), Is.True);
@@ -59,26 +59,26 @@ public class CreateProductRequestValidatorTests
     [Test]
     public async Task Validate_WhenStockZero_ShouldBeValid()
     {
-        var request = new CreateProductRequest("Produit", 10m, 0, "Cat");
+        var request = new CreateProductRequest("Produit", null, 10m, 0, 1);
         var result = await _sut.ValidateAsync(request);
         Assert.That(result.IsValid, Is.True);
     }
 
     [Test]
-    public async Task Validate_WhenCategorieEmpty_ShouldHaveError()
+    public async Task Validate_WhenCategoryIdZero_ShouldHaveError()
     {
-        var request = new CreateProductRequest("Produit", 10m, 5, "");
+        var request = new CreateProductRequest("Produit", null, 10m, 5, 0);
         var result = await _sut.ValidateAsync(request);
         Assert.That(result.IsValid, Is.False);
-        Assert.That(result.Errors.Any(e => e.PropertyName == "Categorie"), Is.True);
+        Assert.That(result.Errors.Any(e => e.PropertyName == "CategoryId"), Is.True);
     }
 
     [Test]
-    public async Task Validate_WhenNomTooLong_ShouldHaveError()
+    public async Task Validate_WhenNameTooLong_ShouldHaveError()
     {
-        var request = new CreateProductRequest(new string('A', 201), 10m, 5, "Cat");
+        var request = new CreateProductRequest(new string('A', 201), null, 10m, 5, 1);
         var result = await _sut.ValidateAsync(request);
         Assert.That(result.IsValid, Is.False);
-        Assert.That(result.Errors.Any(e => e.PropertyName == "Nom"), Is.True);
+        Assert.That(result.Errors.Any(e => e.PropertyName == "Name"), Is.True);
     }
 }
