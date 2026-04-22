@@ -1,6 +1,6 @@
-using FluentValidation;
 using ProductsApi.Application.DTOs;
 using ProductsApi.Domain.Exceptions;
+using DomainValidationException = ProductsApi.Domain.Exceptions.ValidationException;
 
 namespace ProductsApi.API.Middlewares;
 
@@ -28,13 +28,20 @@ public class GlobalExceptionMiddleware
             context.Response.ContentType = "application/json";
             await context.Response.WriteAsJsonAsync(ApiResponse<object>.Fail(ex.Message));
         }
-        catch (ValidationException ex)
+        catch (DomainValidationException ex)
         {
             _logger.LogWarning(ex, "Erreur de validation");
             context.Response.StatusCode = StatusCodes.Status400BadRequest;
             context.Response.ContentType = "application/json";
             await context.Response.WriteAsJsonAsync(
-                ApiResponse<object>.ValidationFail(ex.Errors.Select(e => e.ErrorMessage)));
+                ApiResponse<object>.ValidationFail(ex.Errors));
+        }
+        catch (UnauthorizedException ex)
+        {
+            _logger.LogWarning(ex, "Accès non autorisé");
+            context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+            context.Response.ContentType = "application/json";
+            await context.Response.WriteAsJsonAsync(ApiResponse<object>.Fail(ex.Message));
         }
         catch (Exception ex)
         {

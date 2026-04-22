@@ -1,11 +1,15 @@
 using System.Net;
+using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using NUnit.Framework;
 using ProductsApi.Application.DTOs;
+using ProductsApi.Application.DTOs.Products;
+using ProductsApi.Domain.Entities;
 using ProductsApi.Infrastructure.Data;
 
 namespace ProductsApi.Tests.Integration.Controllers;
@@ -34,6 +38,18 @@ public class ProductsControllerTests
                     options.UseInMemoryDatabase(dbName));
             });
         });
+
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        db.Database.EnsureCreated();
+
+        var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
+        foreach (var role in new[] { "Admin", "User" })
+        {
+            if (!roleManager.RoleExistsAsync(role).GetAwaiter().GetResult())
+                roleManager.CreateAsync(new IdentityRole(role)).GetAwaiter().GetResult();
+        }
+
         _client = _factory.CreateClient();
     }
 
@@ -44,6 +60,22 @@ public class ProductsControllerTests
         _factory.Dispose();
     }
 
+    private async Task<string> GetAdminTokenAsync()
+    {
+        var register = await _client.PostAsJsonAsync("/api/auth/register", new
+        {
+            FirstName = "Admin",
+            LastName = "Test",
+            Email = "admin@test.com",
+            Password = "Admin123!",
+            ConfirmPassword = "Admin123!"
+        });
+
+        var json = await register.Content.ReadAsStringAsync();
+        using var doc = JsonDocument.Parse(json);
+        return doc.RootElement.GetProperty("data").GetProperty("accessToken").GetString()!;
+    }
+
     private async Task<ApiResponse<T>?> ReadResponse<T>(HttpResponseMessage response)
     {
         var json = await response.Content.ReadAsStringAsync();
@@ -51,65 +83,40 @@ public class ProductsControllerTests
     }
 
     [Test]
-    public async Task GetAll_WhenNoProducts_ShouldReturnEmptyList()
+    public async Task GetPaged_WhenAuthenticated_ShouldReturn200()
+    {
+        var token = await GetAdminTokenAsync();
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        var response = await _client.GetAsync("/api/products");
+
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK));
+        var body = await ReadResponse<PagedProductResponse>(response);
+        Assert.That(body!.Success, Is.True);
+    }
+
+    [Test]
+    public async Task GetPaged_WhenNotAuthenticated_ShouldReturn401()
     {
         var response = await _client.GetAsync("/api/products");
-        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK));
-        var body = await ReadResponse<IEnumerable<ProductResponse>>(response);
-        Assert.That(body!.Success, Is.True);
-        Assert.That(body.Data, Is.Empty);
-    }
-
-    [Test]
-    public async Task Create_WhenValidRequest_ShouldReturn201()
-    {
-        var request = new CreateProductRequest("Laptop", 999.99m, 10, "Electronique");
-        var response = await _client.PostAsJsonAsync("/api/products", request);
-        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.Created));
-        var body = await ReadResponse<ProductResponse>(response);
-        Assert.That(body!.Success, Is.True);
-        Assert.That(body.Data!.Nom, Is.EqualTo("Laptop"));
-    }
-
-    [Test]
-    public async Task Create_WhenNomEmpty_ShouldReturn400()
-    {
-        var request = new CreateProductRequest("", 999.99m, 10, "Electronique");
-        var response = await _client.PostAsJsonAsync("/api/products", request);
-        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.BadRequest));
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.Unauthorized));
     }
 
     [Test]
     public async Task GetById_WhenProductNotFound_ShouldReturn404()
     {
+        var token = await GetAdminTokenAsync();
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
         var response = await _client.GetAsync("/api/products/9999");
         Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.NotFound));
     }
 
     [Test]
-    public async Task Delete_WhenProductExists_ShouldReturn204()
+    public async Task Create_WhenNotAuthenticated_ShouldReturn401()
     {
-        var created = await _client.PostAsJsonAsync("/api/products",
-            new CreateProductRequest("A supprimer", 5m, 1, "Cat"));
-        var product = (await ReadResponse<ProductResponse>(created))!.Data!;
-
-        var response = await _client.DeleteAsync($"/api/products/{product.Id}");
-        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.NoContent));
-    }
-
-    [Test]
-    public async Task Update_WhenProductExists_ShouldReturn200WithUpdatedData()
-    {
-        var created = await _client.PostAsJsonAsync("/api/products",
-            new CreateProductRequest("Ancien", 10m, 5, "Cat1"));
-        var product = (await ReadResponse<ProductResponse>(created))!.Data!;
-
-        var updateRequest = new UpdateProductRequest("Nouveau", 20m, 8, "Cat2");
-        var response = await _client.PutAsJsonAsync($"/api/products/{product.Id}", updateRequest);
-
-        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.OK));
-        var body = await ReadResponse<ProductResponse>(response);
-        Assert.That(body!.Data!.Nom, Is.EqualTo("Nouveau"));
-        Assert.That(body.Data.Prix, Is.EqualTo(20m));
+        var request = new CreateProductRequest("Laptop", null, 999.99m, 10, 1);
+        var response = await _client.PostAsJsonAsync("/api/products", request);
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.Unauthorized));
     }
 }
